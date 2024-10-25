@@ -24,6 +24,7 @@ const EditProfile = () => {
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState({
     name: '',
+    username: '',
     phoneNumber: '',
     image: null,
     bio: '',
@@ -34,6 +35,7 @@ const EditProfile = () => {
     if(currentUser){
         setUser({
             name: currentUser.name || '',
+            username: currentUser.username || '',
             phoneNumber: currentUser.phoneNumber || '',
             image: currentUser.image || null,
             address: currentUser.address || '',
@@ -60,11 +62,25 @@ const EditProfile = () => {
 
   const onSubmit = async ()=>{
     let userData = {...user};
-    let {name, phoneNumber, address, image, bio} = userData;
-    if(!name || !phoneNumber || !address || !image || !bio){
-        Alert.alert('Profile', "Please fill all the fields");
-        return;
-    }
+    let {name, username, phoneNumber, address, image, bio} = userData;
+
+    const missingFields = [];
+    if (!name) missingFields.push('Name');
+    if (!username) missingFields.push('Username');
+    if (!phoneNumber) missingFields.push('Phone Number');
+    if (!address) missingFields.push('Address');
+    if (!image) missingFields.push('Image');
+    if (!bio) missingFields.push('Bio');
+
+    if (missingFields.length > 0) {
+      Alert.alert('Profile', `Please fill in the following fields: ${missingFields.join(', ')}`);
+      return;
+  }
+
+    // if(!name || !username || !phoneNumber || !address || !image || !bio){
+    //     Alert.alert('Profile', "Please fill all the fields");
+    //     return;
+    // }
     
     setLoading(true);
     if(typeof image == 'object'){
@@ -73,6 +89,7 @@ const EditProfile = () => {
       else userData.image = null;
     }
     
+    userData.username = `@${username}`
     const res = await updateUser(currentUser?.id, userData);
     setLoading(false);
     if(res.success){
@@ -109,6 +126,13 @@ const EditProfile = () => {
                       placeholderTextColor={theme.colors.textLight}
                       value={user.name}
                       onChangeText={value=> setUser({...user, name: value})}
+                    />
+                    <Input
+                      icon={<Icon name="profilebadge" size={26} />}
+                      placeholder='Create a Username'
+                      placeholderTextColor={theme.colors.textLight}
+                      value={user.username}
+                      onChangeText={value=> setUser({...user, username: value})}
                     />
                     <Input
                       icon={<Icon name="call" size={26} />}
