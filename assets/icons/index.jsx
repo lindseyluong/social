@@ -22,6 +22,7 @@ import Delete from './Delete';
 import Logout from './logout';
 import Image from './Image';
 import Video from './Video';
+import ProfileBadgeIcon from './ProfileBadge';
 
 
 const icons = {
@@ -46,6 +47,8 @@ const icons = {
     logout: Logout,
     image: Image,
     video: Video,
+    profilebadge: ProfileBadgeIcon,
+    
 
 }
 
