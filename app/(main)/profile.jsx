@@ -101,15 +101,15 @@ const UserHeader = ({ user, handleLogout, router }) => {
   return (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
       <View>
-        <Header title="Profile" mb={30} />
+        <Header title={<Text style={styles.usernameText}> @{user && user.username} </Text>} mb={30} />
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
           <Icon name="logout" size={26} color={theme.colors.rose} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.container}>
-        <View style={{ gap: 15 }}>
-          {/* avatar */}
+        {/* avatar */}
+        <View style={{ flex: 1, flexDirection: 'row' }}>
           <View style={styles.avatarContainer}>
             <Avatar
               uri={user?.image}
@@ -122,44 +122,33 @@ const UserHeader = ({ user, handleLogout, router }) => {
             </Pressable>
           </View>
 
-
-          {/* name & username */}
-          <View style={{ alignItems: 'left', gap: 2 }}>
-            <Text style={styles.usersName}> {user && user.name} </Text>
-            <Text style={styles.infoText}> @{user && user.username} </Text>
-          </View>
-
-          {/* email, phone */}
-          <View style={{ gap: 10 }}>
-
-            {/* <View style={styles.info}>
-                <Icon name="mail" size={20} color={theme.colors.textLight} />
-                <Text style={[styles.infoText, {fontSize: hp(1.8)}]}> 
-                    {user && user.email}
-                  </Text>
-              </View>
-              {
-                user && user.phoneNumber && (
-                  <View style={styles.info}>
-                    <Icon name="call" size={20} color={theme.colors.textLight} />
-                    <Text style={[styles.infoText, {fontSize: hp(1.8)}]}> 
-                        {
-                          user.phoneNumber
-                        } 
-                    </Text>
-                  </View>
-                )
-              } */}
-
-            {
-              user && user.bio && (
-                <Text style={[styles.infoText]}>{user.bio}</Text>
-              )
-            }
-
+          {/* post count and friends */}
+          <View style={styles.postfrenContainer}>
+            <View style={styles.friendpoContainer}>
+            <Text>Posts</Text>
+            <Text>10</Text>
+            </View>
+            <View style={styles.friendpoContainer}>
+            <Text>Friends</Text>
+            <Text>10</Text>
+            </View>
           </View>
         </View>
 
+        {/* name & username */}
+        <View style={{ flex: 2, flexDirection: 'row' }}>
+          <Text style={styles.usersName}> {user && user.name} </Text>
+          {/* <Text style={styles.usernameText}> @{user && user.username} </Text> */}
+        </View>
+
+        {/* bio*/}
+        <View>
+          {
+            user && user.bio && (
+              <Text style={[styles.bio]}>{user.bio}</Text>
+            )
+          }
+        </View>
       </View>
     </View>
   )
@@ -168,7 +157,8 @@ const UserHeader = ({ user, handleLogout, router }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    flexDirection: 'column'
+    // flexDirection: 'row',
+    gap: '10',
   },
   headerContainer: {
     marginHorizontal: wp(4),
@@ -202,18 +192,18 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: theme.colors.textDark
   },
-  info: {
+  bio: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    paddingStart: 8
   },
-  infoText: {
-    fontSize: hp(1.6),
+  usernameText: {
+    fontSize: hp(2),
     fontWeight: '500',
     color: theme.colors.textLight,
-    paddingHorizontal: 2
+    marginTop: 14
   },
-
   logoutButton: {
     position: 'absolute',
     right: 0,
@@ -230,6 +220,16 @@ const styles = StyleSheet.create({
     fontSize: hp(2),
     textAlign: 'center',
     color: theme.colors.text
+  },
+  postfrenContainer: {
+    flex: 2, flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center'
+  },
+  friendpoContainer: {
+    flexDirection: 'column',
+    gap: 10,
+    alignItems: 'center'
   }
 
 
