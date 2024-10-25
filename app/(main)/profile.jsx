@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, Pressable, TouchableOpacity, Alert, FlatList } from 'react-native'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { hp, wp } from '../../helpers/common'
 import { useAuth } from '../../contexts/AuthContext'
 import { theme } from '../../constants/theme'
@@ -22,11 +22,26 @@ const Profile = () => {
   const router = useRouter();
   const [posts, setPosts] = useState([]);
   const [hasMore, setHasMore] = useState(true);
+  const [friendsCount, setFriendsCount] = useState(0);
 
-  // first do this
+  useEffect(() => {
+    fetchFriendsCount();
+  }, []);
 
+  const fetchFriendsCount = async () => {
+    const { count, error } = await supabase
+      .from('friends')
+      .select('*', { count: 'exact' })
+      .eq('user_id', user.id)
+      .eq('status', 'accepted');
+
+    if (!error) {
+      setFriendsCount(count);
+    }
+  };
+
+  // Fetch posts function
   const getPosts = async () => {
-
     if (!hasMore) return null; // if no more posts then don't call the api
     limit = limit + 10; // get 10 more posts everytime
     console.log('fetching posts: ', limit);
@@ -36,7 +51,6 @@ const Profile = () => {
       setPosts(res.data);
     }
   }
-
 
   const onLogout = async () => {
     setAuth(null);
@@ -67,7 +81,7 @@ const Profile = () => {
       {/* posts */}
       <FlatList
         data={posts}
-        ListHeaderComponent={<UserHeader user={user} handleLogout={handleLogout} router={router} />}
+        ListHeaderComponent={<UserHeader user={user} handleLogout={handleLogout} router={router} friendsCount={friendsCount} />}
         ListHeaderComponentStyle={{ marginBottom: 30 }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listStyle}
@@ -97,7 +111,7 @@ const Profile = () => {
   )
 }
 
-const UserHeader = ({ user, handleLogout, router }) => {
+const UserHeader = ({ user, handleLogout, router, friendsCount }) => {
   return (
     <View style={{ flex: 1, backgroundColor: 'white' }}>
       <View>
@@ -125,12 +139,15 @@ const UserHeader = ({ user, handleLogout, router }) => {
           {/* post count and friends */}
           <View style={styles.postfrenContainer}>
             <View style={styles.friendpoContainer}>
-            <Text>Posts</Text>
-            <Text>10</Text>
+              <Text>Posts</Text>
+              <Text>10</Text>
             </View>
             <View style={styles.friendpoContainer}>
-            <Text>Friends</Text>
-            <Text>10</Text>
+              <Text>Friends</Text>
+              <Pressable
+                onPress={() => router.push('/friendsList')}>
+                <Text>{friendsCount}</Text>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -231,7 +248,6 @@ const styles = StyleSheet.create({
     gap: 10,
     alignItems: 'center'
   }
-
 
 })
 
