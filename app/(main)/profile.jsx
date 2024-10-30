@@ -145,7 +145,7 @@ const UserHeader = ({ user, handleLogout, router, friendsCount }) => {
             <View style={styles.friendpoContainer}>
               <Text>Friends</Text>
               <Pressable
-                onPress={() => router.push('/friendsList')}>
+                onPress={() => router.push('/FriendsList')}>
                 <Text>{friendsCount}</Text>
               </Pressable>
             </View>

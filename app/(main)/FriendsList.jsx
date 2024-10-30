@@ -1,14 +1,20 @@
-import { StyleSheet, Text, View, FlatList } from 'react-native';
-import React, { useEffect, useState } from 'react';
-import { useRoute } from '@react-navigation/native'; // Import useRoute for navigation
-import { supabase } from '../../lib/supabase'; // Import Supabase client
-import Avatar from '../../components/Avatar';
-import ScreenWrapper from '../../components/ScreenWrapper';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native'
+import React, { useEffect, useState } from 'react'
+import { hp, wp } from '../../helpers/common'
+import { useAuth } from '../../contexts/AuthContext'
+import { theme } from '../../constants/theme'
+import { useRouter } from 'expo-router'
+import Header from '../../components/Header'
+import ScreenWrapper from '../../components/ScreenWrapper'
+import Avatar from '../../components/Avatar'
+import { supabase } from '../../lib/supabase'
+import Loading from '../../components/Loading'
 
 const FriendsList = () => {
-  const route = useRoute(); // Use useRoute to access route params
-  const { userId } = route.params; // Get userId from route params
+  const { user } = useAuth();
+  const router = useRouter();
   const [friends, setFriends] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchFriends();
@@ -17,88 +23,83 @@ const FriendsList = () => {
   const fetchFriends = async () => {
     const { data, error } = await supabase
       .from('friends')
-      .select('friend_id, status, users!friends_friend_id(name, image, username)')
-      .eq('user_id', userId)
+      .select('friend_id, status')
+      .eq('user_id', user.id)
       .eq('status', 'accepted');
 
     if (!error) {
-      const formattedFriends = data.map(friend => ({
-        id: friend.friend_id,
-        name: friend.users.name,
-        image: friend.users.image,
-        username: friend.users.username,
-        status: friend.status,
-      }));
-      setFriends(formattedFriends);
+      const friendDetails = await Promise.all(
+        data.map(async (friend) => {
+          const { data: friendData, error: friendError } = await supabase
+            .from('users')
+            .select('id, username, image')
+            .eq('id', friend.friend_id)
+            .single();
+          if (!friendError) {
+            return friendData;
+          }
+        })
+      );
+      setFriends(friendDetails.filter(Boolean));
+      setLoading(false);
+    } else {
+      console.error(error);
+      setLoading(false);
     }
   };
 
-  const renderFriendItem = ({ item }) => (
-    <View style={styles.friendItemContainer}>
-      <Avatar uri={item?.image} size={50} rounded={30} />
-      <View style={styles.friendInfoContainer}>
-        <Text style={styles.friendName}>{item.name}</Text>
-        <Text style={styles.friendUsername}>@{item.username}</Text>
-      </View>
-    </View>
-  );
+  if (loading) {
+    return <Loading />;
+  }
 
   return (
     <ScreenWrapper bg="white">
-      <View style={styles.container}>
-        <Text style={styles.headerTitle}>Friends List</Text>
-        <FlatList
-          data={friends}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderFriendItem}
-          contentContainerStyle={styles.listContainer}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={<Text style={styles.noFriendsText}>No friends found.</Text>}
-        />
-      </View>
+      <Header title={<Text style={styles.title}>Friends</Text>} mb={30} backAction={() => router.back()} />
+      <FlatList
+        data={friends}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <TouchableOpacity onPress={() => router.push(`/friendProfile?id=${item.id}`)} style={styles.friendContainer}>
+            <Avatar
+              uri={item.image}
+              size={hp(8)}
+              rounded={theme.radius.xxl}
+            />
+            <Text style={styles.friendName}>@{item.username}</Text>
+          </TouchableOpacity>
+        )}
+        ListEmptyComponent={<Text style={styles.noFriendsText}>No friends found</Text>}
+      />
     </ScreenWrapper>
   );
-};
-
-export default FriendsList;
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: 'white',
-  },
-  headerTitle: {
-    fontSize: 20,
+  title: {
+    fontSize: hp(3),
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
+    color: theme.colors.textDark,
   },
-  friendItemContainer: {
+  friendContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 15,
+    paddingVertical: hp(2),
+    paddingHorizontal: wp(4),
     borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
-  },
-  friendInfoContainer: {
-    marginLeft: 15,
+    borderBottomColor: theme.colors.textLight,
   },
   friendName: {
-    fontSize: 16,
+    fontSize: hp(2.2),
     fontWeight: '500',
-    color: '#333',
-  },
-  friendUsername: {
-    fontSize: 14,
-    color: '#777',
+    color: theme.colors.textDark,
+    marginLeft: wp(4),
   },
   noFriendsText: {
+    fontSize: hp(2),
     textAlign: 'center',
-    color: '#777',
-    marginTop: 20,
-  },
-  listContainer: {
-    paddingBottom: 30,
+    color: theme.colors.text,
+    marginTop: hp(5),
   },
 });
+
+export default FriendsList
