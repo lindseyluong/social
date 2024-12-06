@@ -1,3 +1,5 @@
+
+
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { theme } from '../constants/theme';
@@ -7,7 +9,7 @@ import { hp, stripHtmlTags, wp } from '../helpers/common';
 import moment from 'moment';
 import RenderHtml from 'react-native-render-html';
 import Icon from '../assets/icons';
-import { Video } from 'expo-av';
+import { Video, Audio } from 'expo-av';
 import { createPostLike, removePostLike } from '../services/postService';
 import { Share } from 'react-native';
 import Loading from './Loading';
@@ -43,6 +45,7 @@ const PostCard = ({
   const [likes, setLikes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [parsedSong, setParsedSong] = useState(null);
+  const [sound, setSound] = useState(null);
 
   const liked = likes.filter((like) => like.userId == currentUser?.id)[0] ? true : false;
   const createdAt = moment(item?.created_at).format('MMM D');
@@ -70,6 +73,14 @@ const PostCard = ({
       }
     }
   }, [item]);
+
+  useEffect(() => {
+    return () => {
+      if (sound) {
+        sound.unloadAsync();
+      }
+    };
+  }, [sound]);
 
   const onLike = async () => {
     if (liked) {
@@ -124,6 +135,20 @@ const PostCard = ({
     router.push({ pathname: 'postDetails', params: { postId: item?.id } });
   };
 
+  const playSong = async () => {
+    if (parsedSong && parsedSong.preview_url) {
+      try {
+        const { sound } = await Audio.Sound.createAsync({ uri: parsedSong.preview_url });
+        setSound(sound);
+        await sound.playAsync();
+      } catch (error) {
+        console.error('Error playing audio:', error);
+      }
+    } else {
+      Alert.alert('No Preview Available', 'This song does not have a preview URL.');
+    }
+  };
+
   return (
     <View style={[styles.container, hasShadow && shadowStyles]}>
       <View style={styles.header}>
@@ -166,6 +191,9 @@ const PostCard = ({
         {parsedSong && parsedSong.name && parsedSong.artist && (
           <View style={styles.songContainer}>
             <Text style={styles.songTitle}>🎵 {parsedSong.name} by {parsedSong.artist}</Text>
+            <TouchableOpacity onPress={playSong} style={styles.playButton}>
+              <Text style={styles.playButtonText}>Play Preview</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -298,6 +326,20 @@ const styles = StyleSheet.create({
     fontSize: hp(2),
     color: theme.colors.text,
   },
+  playButton: {
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radius.md,
+    alignItems: 'center',
+  },
+  playButtonText: {
+    color: 'white',
+    fontWeight: theme.fonts.bold,
+    fontSize: hp(1.8),
+  },
 });
 
 export default PostCard;
+
