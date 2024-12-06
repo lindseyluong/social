@@ -21,26 +21,30 @@ const Login = () => {
   
   const router = useRouter();
 
-  const onSubmit = async ()=>{
-    if(!emailRef.current || !passwordRef.current){
-        Alert.alert('Login', "Please fill all the fields!");
-        return;
+  const onSubmit = async () => {
+    if (!emailRef.current || !passwordRef.current) {
+      Alert.alert('Login', "Please fill all the fields!");
+      return;
     }
-
+  
     let email = emailRef.current.trim();
     let password = passwordRef.current.trim();
-
+  
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
       email: email,
       password: password,
-    })
-
-    if (error) Alert.alert('Login', error.message)
-    setLoading(false)
-
-    // setLoading(true);
-}
+    });
+  
+    if (error) {
+      Alert.alert('Login', error.message);
+    } else {
+      // If login is successful, navigate to authenticateSpotify
+      router.push('/(main)/spotifyAuthentication');
+    }
+    setLoading(false);
+  }
+  
 
   return (
     <ScreenWrapper bg={'white'}>
@@ -131,4 +135,4 @@ const styles = StyleSheet.create({
   }
 })
 
-export default Login
+export default Login;
