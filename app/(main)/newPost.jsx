@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Image as RNImage, Alert, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, Pressable, Image as RNImage, Alert, TouchableOpacity, TextInput } from 'react-native'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import ScreenWrapper from '../../components/ScreenWrapper'
 import { hp, wp } from '../../helpers/common'
@@ -16,23 +16,90 @@ import Header from '../../components/Header'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import Avatar from '../../components/Avatar'
 import Icon from '../../assets/icons'
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const SpotifySearch = ({ onSelectSong }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const searchSpotify = async () => {
+    if (!searchQuery) return;
+    setLoading(true);
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const expirationDate = await AsyncStorage.getItem('expirationDate');
+      const currentTime = Date.now();
+
+      // Check if the token is still valid
+      if (!token || !expirationDate || currentTime >= parseInt(expirationDate)) {
+        console.error('Spotify token is either invalid or expired. Please authenticate again.');
+        Alert.alert("Spotify Authentication", "Please re-authenticate with Spotify to continue.");
+        setLoading(false);
+        return;
+      }
+
+      const response = await axios.get(`https://api.spotify.com/v1/search`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        params: {
+          q: searchQuery,
+          type: 'track',
+          limit: 10,
+        },
+      });
+      setSearchResults(response.data.tracks.items);
+    } catch (error) {
+      console.error('Error searching Spotify:', error);
+      Alert.alert('Spotify Error', 'An error occurred while searching Spotify. Please try again.');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <View style={styles.spotifySearchContainer}>
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search for a song..."
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        onSubmitEditing={searchSpotify}
+      />
+      {loading ? (
+        <Text>Loading...</Text>
+      ) : (
+        searchResults.map((track) => (
+          <TouchableOpacity key={track.id} onPress={() => onSelectSong({
+            name: track.name,
+            artist: track.artists[0].name,
+            uri: track.uri,
+          })}>
+            <Text style={styles.trackText}>{track.name} by {track.artists[0].name}</Text>
+          </TouchableOpacity>
+        ))
+      )}
+    </View>
+  );
+};
 
 const NewPost = () => {
   const {user} = useAuth();
   const post = useLocalSearchParams();
   console.log('post: ', post);
-  // const videoRef = useRef(null);
   const [file, setFile] = useState(null);
   const bodyRef = useRef('');
   const [loading, setLoading] = useState(false);
   const editorRef = useRef(null);
   const router = useRouter();
+  const [selectedSong, setSelectedSong] = useState(null);  // State to store selected Spotify song
 
   useEffect(()=>{
     if(post && post.id){
       bodyRef.current = post.body;
       setFile(post.file || null);
+      setSelectedSong(post.song || null);  // Load the existing song if editing
       setTimeout(() => {
         editorRef?.current?.setContentHTML(post.body);
       }, (300));
@@ -40,35 +107,29 @@ const NewPost = () => {
   },[])
 
   const onPick = async (isImage) => {
-    // No permissions request is necessary for launching the image library
     let mediaConfig = {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.7,
-      // base64: true
     }
 
     if(!isImage){
       mediaConfig = {
         mediaTypes: ImagePicker.MediaTypeOptions.Videos,
         allowsEditing: true,
-        // base64: true
       }
     }
     let result = await ImagePicker.launchImageLibraryAsync(mediaConfig);
 
     if (!result.canceled) {
-      // console.log({...result.assets[0]});
       setFile(result.assets[0]);
     }
   };
 
   const onSubmit = async ()=>{
-
-    // validate data
-    if(!bodyRef.current && !file){
-      Alert.alert('Post', "Please choose an image or add post body!");
+    if(!bodyRef.current && !file && !selectedSong){
+      Alert.alert('Post', "Please choose an image, add post body, or select a song!");
       return;
     }
 
@@ -77,6 +138,7 @@ const NewPost = () => {
       file,
       body: bodyRef.current,
       userId: user?.id,
+      song: selectedSong,  // Include the selected song in the post data
     }
     if(post && post.id) data.id = post.id;
 
@@ -85,32 +147,28 @@ const NewPost = () => {
     if(res.success){
       setFile(null);
       bodyRef.current = '';
+      setSelectedSong(null);
       editorRef.current?.setContentHTML('');
       router.back();
     }else{
       Alert.alert('Post', res.msg);
     }
-
   }
 
   const isLocalFile = file=>{
     if(!file) return null;
-
     if(typeof file == 'object') return true;
     return false;
   }
 
   const getFileType = file=>{
     if(!file) return null;
-
     if(isLocalFile(file)){
       return file.type;
     }
-    
     if(file.includes('postImages')){
       return 'image';
     }
-
     return 'video';
   }
 
@@ -123,23 +181,18 @@ const NewPost = () => {
     }
   }
 
-  console.log('file: ', file);
-
-
   return (
     <ScreenWrapper bg="white">
       <View style={styles.container}>
         <Header title="Create Post" mb={15} />
           
         <ScrollView contentContainerStyle={{gap: 20}}>
-          {/* header */}
           <View style={styles.header}>
               <Avatar
                 uri={user?.image}
                 size={hp(6.5)}
                 rounded={theme.radius.xl}
               />
-              {/* <Image source={getUserImageSrc(user?.image)} style={styles.avatar} /> */}
               <View style={{gap: 2}}>
                 <Text style={styles.username}>{user && user.name}</Text>
                 <Text style={styles.publicText}>Public</Text>
@@ -151,22 +204,6 @@ const NewPost = () => {
           {
             file && (
               <View style={styles.file}>
-                {/* {
-                  file?.type=='video'? (
-                    <Video
-                      style={{flex: 1}}
-                      source={{
-                        uri: file?.uri,
-                      }}
-                      useNativeControls
-                      resizeMode="cover"
-                      isLooping
-                    />
-                  ):(
-                    <RNImage source={{uri: file?.uri}} resizeMode='cover' style={{flex: 1}} />
-                  )
-                } */}
-
                 {
                   getFileType(file)=='video'? (
                     <Video
@@ -182,14 +219,22 @@ const NewPost = () => {
                     <Image source={{uri: getFileUri(file)}} contentFit='cover' style={{flex: 1}} />
                   )
                 }
-
-                
                 <Pressable style={styles.closeIcon} onPress={()=> setFile(null)}>
                   <AntDesign name="closecircle" size={25} color="rgba(255, 0,0,0.6)" />
                 </Pressable>
               </View>
             )
-          }   
+          }  
+          {
+            selectedSong && (
+              <View style={styles.songContainer}>
+                <Text style={styles.songTitle}>{selectedSong.name} by {selectedSong.artist}</Text>
+                <Pressable style={styles.closeIcon} onPress={() => setSelectedSong(null)}>
+                  <AntDesign name="closecircle" size={25} color="rgba(255, 0,0,0.6)" />
+                </Pressable>
+              </View>
+            )
+          } 
           <View style={styles.media}>
             <Text style={styles.addImageText}>Add to your post</Text>
             <View style={styles.mediaIcons}>
@@ -199,8 +244,8 @@ const NewPost = () => {
               <TouchableOpacity onPress={()=> onPick(false)}>
                 <Icon name="video" size={33} color={theme.colors.dark} />
               </TouchableOpacity>
+              <SpotifySearch onSelectSong={(song) => setSelectedSong(song)} />
             </View>
-            
           </View> 
         </ScrollView>
         <Button 
@@ -210,7 +255,6 @@ const NewPost = () => {
           hasShadow={false} 
           onPress={onSubmit}
         />
-        
       </View>
     </ScreenWrapper>
   )
@@ -219,17 +263,9 @@ const NewPost = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // backgroundColor: 'red',
     marginBottom: 30,
     paddingHorizontal: wp(4),
     gap: 15,
-  },
-  title: {
-    // marginBottom: 10,
-    fontSize: hp(2.5),
-    fontWeight: theme.fonts.semibold,
-    color: theme.colors.text,
-    textAlign: 'center'
   },
   header: {
     flexDirection: 'row',
@@ -241,24 +277,12 @@ const styles = StyleSheet.create({
     fontWeight: theme.fonts.semibold,
     color: theme.colors.text,
   },
-  avatar: {
-    height: hp(6.5),
-    width: hp(6.5),
-    borderRadius: theme.radius.xl,
-    borderCurve: 'continuous',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)'
-  },
   publicText: {
     fontSize: hp(1.7),
     fontWeight: theme.fonts.medium,
     color: theme.colors.textLight,
   },
-
-  textEditor: {
-    // marginTop: 10,
-  },
-
+  textEditor: {},
   media: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -275,16 +299,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 15
   },
-
   addImageText: {
     fontSize: hp(1.9),
     fontWeight: theme.fonts.semibold,
     color: theme.colors.text,
-  },
-  imageIcon: {
-    // backgroundColor: theme.colors.gray,
-    borderRadius: theme.radius.md,
-    // padding: 6,
   },
   file: {
     height: hp(30),
@@ -293,19 +311,38 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderCurve: 'continuous'
   },
-  video: {
-
+  songContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.gray,
+    borderRadius: theme.radius.md,
+  },
+  songTitle: {
+    fontSize: hp(2),
+    color: theme.colors.text,
   },
   closeIcon: {
     position: 'absolute',
     top: 10,
     right: 10,
-    // shadowColor: theme.colors.textLight,
-    // shadowOffset: {width: 0, height: 3},
-    // shadowOpacity: 0.6,
-    // shadowRadius: 8
+  },
+  spotifySearchContainer: {
+    marginTop: 10,
+  },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: theme.colors.gray,
+    padding: 10,
+    borderRadius: theme.radius.md,
+  },
+  trackText: {
+    paddingVertical: 5,
+    fontSize: hp(1.8),
+    color: theme.colors.text,
   }
-
 })
 
-export default NewPost
+export default NewPost;
